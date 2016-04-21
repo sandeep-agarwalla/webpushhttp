@@ -204,7 +204,7 @@
          }, function(data) { 
             // data = JSON.parse(data);
             localStorage.setItem('moeWebSDKSettingsSetupTime', now);
-            localStorage.setItem('moeWebSDKSettings', data);
+            localStorage.setItem('moeWebSDKSettings', JSON.stringify(data));
             webPushFunctions(data);
          });
 
@@ -219,7 +219,7 @@
                     localStorage.removeItem('moeWebSDKSettings');
                     localStorage.removeItem('moeWebSDKSettingsSetupTime');
                     localStorage.setItem('moeWebSDKSettingsSetupTime', now);
-                    localStorage.setItem('moeWebSDKSettings', data)
+                    localStorage.setItem('moeWebSDKSettings', JSON.stringify(data))
                     webPushFunctions(data);
                  });
             } else {
