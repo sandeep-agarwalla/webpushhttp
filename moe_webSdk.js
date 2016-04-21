@@ -202,7 +202,7 @@
             makeGet("http://prp.moengage.com/websdksettings", {
              "app_id": self.moe_data["app_id"]
          }, function(data) { 
-            data = JSON.parse(data);
+            // data = JSON.parse(data);
             localStorage.setItem('moeWebSDKSettingsSetupTime', now);
             localStorage.setItem('moeWebSDKSettings', data);
             webPushFunctions(data);
@@ -215,7 +215,7 @@
                 makeGet("http://prp.moengage.com/websdksettings", {
                      "app_id": self.moe_data["app_id"]
                  }, function(data) { 
-                    data = JSON.parse(data);
+                    // data = JSON.parse(data);
                     localStorage.removeItem('moeWebSDKSettings');
                     localStorage.removeItem('moeWebSDKSettingsSetupTime');
                     localStorage.setItem('moeWebSDKSettingsSetupTime', now);
