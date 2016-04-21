@@ -203,7 +203,7 @@
              "app_id": self.moe_data["app_id"]
          }, function(data) { 
             // data = JSON.parse(data);
-            var newData = JSON.stringify(data);
+            // var newData = JSON.stringify(data);
             localStorage.setItem('moeWebSDKSettingsSetupTime', now);
             localStorage.setItem('moeWebSDKSettings', newData);
             webPushFunctions(data);
