@@ -203,7 +203,10 @@
              "app_id": self.moe_data["app_id"]
          }, function(data) { 
             // data = JSON.parse(data);
-            // var newData = JSON.stringify(data);
+            if(typeof(data) == 'string'){
+                data = JSON.parse(data);
+            }
+            var newData = JSON.stringify(data);
             localStorage.setItem('moeWebSDKSettingsSetupTime', now);
             localStorage.setItem('moeWebSDKSettings', newData);
             webPushFunctions(data);
@@ -217,6 +220,9 @@
                      "app_id": self.moe_data["app_id"]
                  }, function(data) { 
                     // data = JSON.parse(data);
+                    if(typeof(data) == 'string'){
+                        data = JSON.parse(data);
+                    }
                     var newData = JSON.stringify(data);
                     localStorage.removeItem('moeWebSDKSettings');
                     localStorage.removeItem('moeWebSDKSettingsSetupTime');
