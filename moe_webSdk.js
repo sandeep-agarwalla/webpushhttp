@@ -223,7 +223,7 @@
                     webPushFunctions(data);
                  });
             } else {
-                var sdk_settings_data = JSON.parse(localStorage.getItem("moeWebSDKSettings"));
+                var sdk_settings_data = localStorage.getItem("moeWebSDKSettings");
                 webPushFunctions(sdk_settings_data);
             }
         }
