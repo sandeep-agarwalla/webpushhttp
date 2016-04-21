@@ -195,12 +195,42 @@
              self.moe_data["is_incognito"] = data
          })
 
-         makeGet("http://52.90.30.89/websdksettings", {
+        var hours = 24; // Reset when storage is more than 24hours
+        var now = new Date().getTime(); // Get current time
+        var setupTime = localStorage.getItem('moeWebSDKSettingsSetupTime'); 
+        if (setupTime == null) {
+            makeGet("http://prp.moengage.com/websdksettings", {
              "app_id": self.moe_data["app_id"]
          }, function(data) { 
             data = JSON.parse(data);
+            localStorage.setItem('moeWebSDKSettingsSetupTime', now);
+            localStorage.setItem('moeWebSDKSettings', data);
             webPushFunctions(data);
          });
+
+
+        } else {
+            if(now-setupTime > hours*60*60*1000) {
+
+                makeGet("http://prp.moengage.com/websdksettings", {
+                     "app_id": self.moe_data["app_id"]
+                 }, function(data) { 
+                    data = JSON.parse(data);
+                    localStorage.removeItem('moeWebSDKSettings');
+                    localStorage.removeItem('moeWebSDKSettingsSetupTime');
+                    localStorage.setItem('moeWebSDKSettingsSetupTime', now);
+                    localStorage.setItem('moeWebSDKSettings', data)
+                    webPushFunctions(data);
+                 });
+            } else {
+                var sdk_settings_data = JSON.parse(localStorage.getItem("moeWebSDKSettings"));
+                webPushFunctions(sdk_settings_data);
+            }
+        }
+
+
+
+         
 
          if ("retry_limit" in self.moe_data)
              retry_limit = self.moe_data["retry_limit"];
@@ -773,10 +803,10 @@
              }
          }
 
-         if (httpsFlag == true) {
+         if (httpsFlag == true && (sBrowser == "Google Chrome") && (isIncognitoFlag == false)) {
              registerServieWorker(); // Registering a service worker on load
              moeCheckPushSubscriptionStatus();
-         } else {
+         } else if (httpsFlag == false && (sBrowser == "Google Chrome") && (isIncognitoFlag == false)) {
              moeLoadBanner();
          }
          
