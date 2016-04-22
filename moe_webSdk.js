@@ -237,9 +237,6 @@
         }
 
 
-
-         
-
          if ("retry_limit" in self.moe_data)
              retry_limit = self.moe_data["retry_limit"];
          if ("debug_logs" in self.moe_data)
@@ -585,15 +582,13 @@
 
       var webPushFunctions = function(webSettings){
         var httpsFlag;
-        if(webSettings['webData']['domain_type'] != 'https') {
+        if(webSettings['webData']['domain_type'] == 'https') {
             httpsFlag = true;
-        } else {
+        } else if(webSettings['webData']['domain_type'] == 'http'){
             httpsFlag = false;
             collectData().then(function(dataToIframe) {
-              var subdomain = 'https://dummybackend.moengage.com';
-              dataToIframe.os_platform = 'Chrome' // Changing it from navigator to make proper JSON in subdomain
+              var subdomain = 'https://' + webSettings['webData']['domain_type'] + '.moengage.com';
               var iframeToOpen = constructGet(subdomain, dataToIframe);
-              console.log(iframeToOpen);
               function callIframe(){
                var iframe = document.createElement("iframe");
                iframe.style.display = "none";
@@ -620,8 +615,8 @@
                   var subdomain = 'https://dummybackend.moengage.com';
                   dataToIframe.os_platform = 'Chrome' // Changing it from navigator to make proper JSON in subdomain
                   var iframeToOpen = constructGet(subdomain, dataToIframe);
-                  console.log(iframeToOpen);
                   popupwindow(iframeToOpen, 'mywindow', '600', '500');
+                  localStorage.setItem("ask_web_push", false);
             });
              
          };
@@ -687,10 +682,23 @@
                          'MOE_WEB_PUSH_TOKEN': 'false'
                      });
                  }
+                 collectData().then(function(dataToServiceWorker) {
+                 dataToServiceWorker['push_id'] = subscriptionId;
+                 navigator.serviceWorker.controller.postMessage({
+                     'data': dataToServiceWorker
+                 });
+             })
                  return;
              }
              endpointSections = subscription.endpoint.split('/');
              subscriptionId = endpointSections[endpointSections.length - 1];
+             
+             collectData().then(function(dataToServiceWorker) {
+                 dataToServiceWorker['push_id'] = subscriptionId;
+                 navigator.serviceWorker.controller.postMessage({
+                     'data': dataToServiceWorker
+                 });
+             })
              // ToDo Need to remove this completely before making it live
              // var curlCodeElement = document.querySelector('.js-curl-code');
              // curlCodeElement.innerHTML = subscriptionId;
@@ -797,11 +805,7 @@
                          // Update the current state with the
                          // subscriptionid and endpoint
                          subscriptionUpdate(subscription);
-                         collectData().then(function(dataToServiceWorker) {
-                             navigator.serviceWorker.controller.postMessage({
-                                 'data': dataToServiceWorker
-                             });
-                         })
+                         
                      })
                      .catch(function(err) {
                          console.log('PushClient.setUpPushPermission() Error', err);
@@ -814,7 +818,7 @@
          if (httpsFlag == true && (sBrowser == "Google Chrome") && (isIncognitoFlag == false)) {
              registerServieWorker(); // Registering a service worker on load
              moeCheckPushSubscriptionStatus();
-         } else if (httpsFlag == false && (sBrowser == "Google Chrome") && (isIncognitoFlag == false)) {
+         } else if (httpsFlag == false && (sBrowser == "Google Chrome") && (isIncognitoFlag == false) && (checkHTTPLoadBanner == undefined || checkHTTPLoadBanner == true)) {
              moeLoadBanner();
          }
          
