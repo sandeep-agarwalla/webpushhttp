@@ -814,7 +814,7 @@
                  console.log('Push Notification not allowed');
              }
          }
-
+         var checkHTTPLoadBanner = localStorage.getItem("ask_web_push");
          if (httpsFlag == true && (sBrowser == "Google Chrome") && (isIncognitoFlag == false)) {
              registerServieWorker(); // Registering a service worker on load
              moeCheckPushSubscriptionStatus();
