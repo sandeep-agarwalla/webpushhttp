@@ -190,51 +190,66 @@
              debug_mode && console.log("Cannot set Item", err);
          }
      };
+
+     var getWedSDKSettings = function () {
+
+        var promise = new Promise(function(resolve) {
+             var hours = 24; // Reset when storage is more than 24hours
+         var now = new Date().getTime(); // Get current time
+         var setupTime = localStorage.getItem('moeWebSDKSettingsSetupTime');
+         if (setupTime == null) {
+             makeGet("http://prp.moengage.com/websdksettings", {
+                 "app_id": self.moe_data["app_id"]
+             }, function(data) {
+                 // data = JSON.parse(data);
+                 if (typeof(data) == 'string') {
+                     data = JSON.parse(data);
+                 }
+                 var newData = JSON.stringify(data);
+                 localStorage.setItem('moeWebSDKSettingsSetupTime', now);
+                 localStorage.setItem('moeWebSDKSettings', newData);
+                 // webPushFunctions(data);
+                 resolve(data);
+             });
+
+
+         } else {
+             if (now - setupTime > hours * 60 * 60 * 1000) {
+
+                 makeGet("http://prp.moengage.com/websdksettings", {
+                     "app_id": self.moe_data["app_id"]
+                 }, function(data) {
+                     // data = JSON.parse(data);
+                     if (typeof(data) == 'string') {
+                         data = JSON.parse(data);
+                     }
+                     var newData = JSON.stringify(data);
+                     localStorage.removeItem('moeWebSDKSettings');
+                     localStorage.removeItem('moeWebSDKSettingsSetupTime');
+                     localStorage.setItem('moeWebSDKSettingsSetupTime', now);
+                     localStorage.setItem('moeWebSDKSettings', newData)
+                     // webPushFunctions(data);
+                     resolve(data);
+                 });
+             } else {
+                 var sdk_settings_data = JSON.parse(localStorage.getItem("moeWebSDKSettings"));
+                 // webPushFunctions(sdk_settings_data);
+                 resolve(sdk_settings_data);
+             }
+         }
+         })
+         return promise
+     }
      var initializeSession = function() {
          isWindowIncognito().then(function(data) {
              self.moe_data["is_incognito"] = data
          })
 
-        var hours = 24; // Reset when storage is more than 24hours
-        var now = new Date().getTime(); // Get current time
-        var setupTime = localStorage.getItem('moeWebSDKSettingsSetupTime'); 
-        if (setupTime == null) {
-            makeGet("http://prp.moengage.com/websdksettings", {
-             "app_id": self.moe_data["app_id"]
-         }, function(data) { 
-            // data = JSON.parse(data);
-            if(typeof(data) == 'string'){
-                data = JSON.parse(data);
-            }
-            var newData = JSON.stringify(data);
-            localStorage.setItem('moeWebSDKSettingsSetupTime', now);
-            localStorage.setItem('moeWebSDKSettings', newData);
+         getWedSDKSettings().then(function(data){
+            if(data['webData']['call_push'] && data['webData']['call_push'] != 'client'){
             webPushFunctions(data);
-         });
-
-
-        } else {
-            if(now-setupTime > hours*60*60*1000) {
-
-                makeGet("http://prp.moengage.com/websdksettings", {
-                     "app_id": self.moe_data["app_id"]
-                 }, function(data) { 
-                    // data = JSON.parse(data);
-                    if(typeof(data) == 'string'){
-                        data = JSON.parse(data);
-                    }
-                    var newData = JSON.stringify(data);
-                    localStorage.removeItem('moeWebSDKSettings');
-                    localStorage.removeItem('moeWebSDKSettingsSetupTime');
-                    localStorage.setItem('moeWebSDKSettingsSetupTime', now);
-                    localStorage.setItem('moeWebSDKSettings', newData)
-                    webPushFunctions(data);
-                 });
-            } else {
-                var sdk_settings_data = JSON.parse(localStorage.getItem("moeWebSDKSettings"));
-                webPushFunctions(sdk_settings_data);
             }
-        }
+         });
 
 
          if ("retry_limit" in self.moe_data)
@@ -578,282 +593,291 @@
       * Adding Function for Subscribe User, Unsubscribe User, Set up Push Permission  self.moe_data["app_id"]
       */
 
+     var callWebPush = function() {
+        getWedSDKSettings().then(function(data){
+            if(data['webData']['call_push'] && data['webData']['call_push'] == 'client'){
+            webPushFunctions(data);
+            }
+         })
+     }
 
 
-    var webPushFunctions = function(webSettings){
 
-        isWindowIncognito().then(function(isIncognito) {
-         isIncognitoFlag = isIncognito;
-     
-            var httpsFlag;
-            if(webSettings['webData']['domain_type'] == 'https') {
-                httpsFlag = true;
-            } else if(webSettings['webData']['domain_type'] == 'http'){
-                httpsFlag = false;
-                collectData().then(function(dataToIframe) {
-                  var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
-                  var iframeToOpen = constructGet(subdomain, dataToIframe);
-                  function callIframe(){
-                   var iframe = document.createElement("iframe");
-                   iframe.style.display = "none";
-                   iframe.src = iframeToOpen;
-                   document.getElementsByTagName('body')[0].appendChild(iframe);
-                };
-                callIframe();
-                })
-            };
+     var webPushFunctions = function(webSettings) {
 
-            var settingsData = {};
-            settingsData = webSettings['webData']['banner'];
+            isWindowIncognito().then(function(isIncognito) {
+                 isIncognitoFlag = isIncognito;
 
+                 var httpsFlag;
+                 if (webSettings['webData']['domain_type'] == 'https') {
+                     httpsFlag = true;
+                 } else if (webSettings['webData']['domain_type'] == 'http') {
+                     httpsFlag = false;
+                     collectData().then(function(dataToIframe) {
+                         var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
+                         var iframeToOpen = constructGet(subdomain, dataToIframe);
 
-         function popupwindow(url, title, w, h) {
-             var left = (screen.width / 2) - (w / 2);
-             var top = (screen.height / 2) - (h / 2);
-             return window.open(url, title, 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width=' + w + ', height=' + h + ', top=' + top + ', left=' + left);
-         }
-
-        moeOpenSubDomain = function() {
-            collectData().then(function(dataToIframe) {
-                  var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
-                  // dataToIframe.os_platform = 'Chrome' // Changing it from navigator to make proper JSON in subdomain
-                  var iframeToOpen = constructGet(subdomain, dataToIframe);
-                  popupwindow(iframeToOpen, 'mywindow', '600', '500');
-                  localStorage.setItem("ask_web_push", false);
-                  moeCloseBanner();
-            });
-             
-        };
-
-         moeLoadBanner = function() {
-             var iDiv = document.createElement('div');
-             iDiv.id = 'moe-push-div';
-             iDiv.className = 'moe-push-class';
-             // document.getElementsByTagName('body')[0].appendChild(iDiv);
-             // prependTo('body')
-             var bodyDiv = document.body.firstChild;
-             bodyDiv.parentNode.insertBefore(iDiv, bodyDiv);
-             if (httpsFlag == true) {
-                 var textForSubscription = '<span onclick="moeSubscribeUserSwap()" style="top:5px;position:relative;">' + settingsData['opt_in_text'] + '</span>';
-             } else {
-                 var textForSubscription = '<span onclick="moeOpenSubDomain()" style="top:5px;position:relative;">' + settingsData['opt_in_text'] + '</span>';
-             }
-             var textForCancelBanner = '<span onclick="moeRemoveBanner()" style="top:5px;position:relative;margin-left:5px;">' + settingsData['close_text'] + '</span>';
-             var finaTextForSubscription = textForSubscription + textForCancelBanner;
-             document.getElementById("moe-push-div").innerHTML = finaTextForSubscription;
-             var myElement = document.querySelector("#moe-push-div");
-             myElement.style.backgroundColor = settingsData['banner_bg_color'];
-             myElement.style.color = settingsData['banner_txt_color'];
-             myElement.style.height = "30px";
-             myElement.style.zIndex = "9999";
-             myElement.style.top = "0px";
-             myElement.style.width = "100%";
-             myElement.style.position = "relative";
-             myElement.style.textAlign = "center";
-             myElement.style.cursor = "pointer";
-             myElement.style.fontSize = "16px";
-             myElement.style.fontFamily = settingsData['banner_txt_font'] || "PT Sans";
-         };
-
-         moeRemoveBanner = function() {
-             var element = document.getElementById("moe-push-div");
-             element.parentNode.removeChild(element);
-             localStorage.setItem("ask_web_push", false);
-         };
-
-         moeCloseBanner = function() {
-             var element = document.getElementById("moe-push-div");
-             element.parentNode.removeChild(element);
-         };
-
-         var registerServieWorker = function() {
-             if ('serviceWorker' in navigator) {
-                 navigator.serviceWorker.register('service-worker46.js', {
-                     scope: './'
-                 });
-             } else {
-                 console.log('Servie Worker Not Supported');
-             }
-         }
-
-         
-
-         var subscriptionUpdate = function(subscription, param) {
-             if (!subscription) {
-                 subscriptionId = null;
-                 
-                 if (param == 'unsubscribed') {
-                     track_event("MOE_USER_UNSUBSCRIBED", {
-                         'MOE_WEB_PUSH_TOKEN': 'false'
-                     });
-                 } else if (param == undefined) {
-                    track_event("MOE_USER_SUBSCRIPTION_CHECK", {
-                        'MOE_WEB_PUSH_TOKEN': 'false'
-                    });
+                         function callIframe() {
+                             var iframe = document.createElement("iframe");
+                             iframe.style.display = "none";
+                             iframe.src = iframeToOpen;
+                             document.getElementsByTagName('body')[0].appendChild(iframe);
+                         };
+                         callIframe();
+                     })
                  };
-                 collectData().then(function(dataToServiceWorker) {
-                 dataToServiceWorker['push_id'] = subscriptionId;
-                 navigator.serviceWorker.controller.postMessage({
-                     'data': dataToServiceWorker
-                 });
-             })
-                 return;
-             }
-             endpointSections = subscription.endpoint.split('/');
-             subscriptionId = endpointSections[endpointSections.length - 1];
-             
-             collectData().then(function(dataToServiceWorker) {
-                 dataToServiceWorker['push_id'] = subscriptionId;
-                 navigator.serviceWorker.controller.postMessage({
-                     'data': dataToServiceWorker
-                 });
-             });
-             track_event("MOE_USER_SUBSCRIPTION_CHECK", {
-                 'MOE_WEB_PUSH_TOKEN': subscriptionId
-             });
 
-             if (param == 'subscribed') {
-                 track_event("MOE_USER_SUBSCRIBED", {
-                     'MOE_WEB_PUSH_TOKEN': subscriptionId
-                 });
-             } else if (param == undefined) {
-                track_event("MOE_USER_SUBSCRIPTION_CHECK", {
-                    'MOE_WEB_PUSH_TOKEN': 'false'
-                });
-             }
+                 var settingsData = {};
+                 settingsData = webSettings['webData']['banner'];
 
-         };
 
-         moeSubscribeUserSwap = function() {
+                 function popupwindow(url, title, w, h) {
+                     var left = (screen.width / 2) - (w / 2);
+                     var top = (screen.height / 2) - (h / 2);
+                     return window.open(url, title, 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width=' + w + ', height=' + h + ', top=' + top + ', left=' + left);
+                 }
 
-             // We need the service worker registration to access the push manager
-             navigator.serviceWorker.ready
-                 .then(function(serviceWorkerRegistration) {
-                     return serviceWorkerRegistration.pushManager.subscribe({
-                         userVisibleOnly: true
-                     });
-                 })
-                 .then(function(subscription) {
-                     subscriptionUpdate(subscription, 'subscribed');
-                     var webPushPermission = localStorage.getItem("ask_web_push");
-                     if (webPushPermission == undefined || webPushPermission == true && (bannerLoadFlag == true)) {
+                 moeOpenSubDomain = function() {
+                     collectData().then(function(dataToIframe) {
+                         var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
+                         // dataToIframe.os_platform = 'Chrome' // Changing it from navigator to make proper JSON in subdomain
+                         var iframeToOpen = constructGet(subdomain, dataToIframe);
+                         popupwindow(iframeToOpen, 'mywindow', '600', '500');
+                         localStorage.setItem("ask_web_push", false);
                          moeCloseBanner();
+                     });
+
+                 };
+
+                 moeLoadBanner = function() {
+                     var iDiv = document.createElement('div');
+                     iDiv.id = 'moe-push-div';
+                     iDiv.className = 'moe-push-class';
+                     // document.getElementsByTagName('body')[0].appendChild(iDiv);
+                     // prependTo('body')
+                     var bodyDiv = document.body.firstChild;
+                     bodyDiv.parentNode.insertBefore(iDiv, bodyDiv);
+                     if (httpsFlag == true) {
+                         var textForSubscription = '<span onclick="moeSubscribeUserSwap()" style="top:5px;position:relative;">' + settingsData['opt_in_text'] + '</span>';
+                     } else {
+                         var textForSubscription = '<span onclick="moeOpenSubDomain()" style="top:5px;position:relative;">' + settingsData['opt_in_text'] + '</span>';
                      }
-                 })
-                 .catch(function(subscriptionErr) {
-                     console.log('User Subscription Error', subscriptionErr);
+                     var textForCancelBanner = '<span onclick="moeRemoveBanner()" style="top:5px;position:relative;margin-left:5px;">' + settingsData['close_text'] + '</span>';
+                     var finaTextForSubscription = textForSubscription + textForCancelBanner;
+                     document.getElementById("moe-push-div").innerHTML = finaTextForSubscription;
+                     var myElement = document.querySelector("#moe-push-div");
+                     myElement.style.backgroundColor = settingsData['banner_bg_color'];
+                     myElement.style.color = settingsData['banner_txt_color'];
+                     myElement.style.height = "30px";
+                     myElement.style.zIndex = "9999";
+                     myElement.style.top = "0px";
+                     myElement.style.width = "100%";
+                     myElement.style.position = "relative";
+                     myElement.style.textAlign = "center";
+                     myElement.style.cursor = "pointer";
+                     myElement.style.fontSize = "16px";
+                     myElement.style.fontFamily = settingsData['banner_txt_font'] || "PT Sans";
+                 };
 
-                     // Check for a permission prompt issue
-                     return navigator.permissions.query({
-                             name: 'push',
-                             userVisibleOnly: true
-                         })
-                         .then(function(permissionState) {
-                             console.log(permissionState.state, "Permission State")
-                             moeCloseBanner();
-                             // window.PushDemo.ui.setPushChecked(false);
-                             if (permissionState.state !== 'denied' &&
-                                 permissionState.state !== 'prompt') {
-                                 // If the permission wasnt denied or prompt, that means the
-                                 // permission was accepted, so this must be an error
-                             }
+                 moeRemoveBanner = function() {
+                     var element = document.getElementById("moe-push-div");
+                     element.parentNode.removeChild(element);
+                     localStorage.setItem("ask_web_push", false);
+                 };
+
+                 moeCloseBanner = function() {
+                     var element = document.getElementById("moe-push-div");
+                     element.parentNode.removeChild(element);
+                 };
+
+                 var registerServieWorker = function() {
+                     if ('serviceWorker' in navigator) {
+                         navigator.serviceWorker.register('service-worker46.js', {
+                             scope: './'
                          });
-                 });
-         };
+                     } else {
+                         console.log('Servie Worker Not Supported');
+                     }
+                 }
 
-         moeUnSubscribeUserSwap = function() {
-             console.log('Unsubscription Started');
-             navigator.serviceWorker.ready
-                 .then(function(serviceWorkerRegistration) {
-                     return serviceWorkerRegistration.pushManager.getSubscription();
-                 })
-                 .then(function(pushSubscription) {
-                     // Check we have everything we need to unsubscribe
-                     if (!pushSubscription) {
-                         // User is already unsubscribed from our system. Make call to sync with server
-                         subscriptionUpdate(null);
+
+
+                 var subscriptionUpdate = function(subscription, param) {
+                     if (!subscription) {
+                         subscriptionId = null;
+
+                         if (param == 'unsubscribed') {
+                             track_event("MOE_USER_UNSUBSCRIBED", {
+                                 'MOE_WEB_PUSH_TOKEN': 'false'
+                             });
+                         } else if (param == undefined) {
+                             track_event("MOE_USER_SUBSCRIPTION_CHECK", {
+                                 'MOE_WEB_PUSH_TOKEN': 'false'
+                             });
+                         };
+                         collectData().then(function(dataToServiceWorker) {
+                             dataToServiceWorker['push_id'] = subscriptionId;
+                             navigator.serviceWorker.controller.postMessage({
+                                 'data': dataToServiceWorker
+                             });
+                         })
                          return;
                      }
-                     return pushSubscription.unsubscribe()
-                         .then(function(successful) {
-                             if (!successful) {
-                                 // The unsubscribe was unsuccessful, but we can
-                                 // remove the subscriptionId from our server
-                                 // and notifications will stop
-                                 // This just may be in a bad state when the user returns
-                                 console.error('We were unable to unregister from push');
+                     endpointSections = subscription.endpoint.split('/');
+                     subscriptionId = endpointSections[endpointSections.length - 1];
+
+                     collectData().then(function(dataToServiceWorker) {
+                         dataToServiceWorker['push_id'] = subscriptionId;
+                         navigator.serviceWorker.controller.postMessage({
+                             'data': dataToServiceWorker
+                         });
+                     });
+                     track_event("MOE_USER_SUBSCRIPTION_CHECK", {
+                         'MOE_WEB_PUSH_TOKEN': subscriptionId
+                     });
+
+                     if (param == 'subscribed') {
+                         track_event("MOE_USER_SUBSCRIBED", {
+                             'MOE_WEB_PUSH_TOKEN': subscriptionId
+                         });
+                     } else if (param == undefined) {
+                         track_event("MOE_USER_SUBSCRIPTION_CHECK", {
+                             'MOE_WEB_PUSH_TOKEN': 'false'
+                         });
+                     }
+
+                 };
+
+                 moeSubscribeUserSwap = function() {
+
+                     // We need the service worker registration to access the push manager
+                     navigator.serviceWorker.ready
+                         .then(function(serviceWorkerRegistration) {
+                             return serviceWorkerRegistration.pushManager.subscribe({
+                                 userVisibleOnly: true
+                             });
+                         })
+                         .then(function(subscription) {
+                             subscriptionUpdate(subscription, 'subscribed');
+                             var webPushPermission = localStorage.getItem("ask_web_push");
+                             if (webPushPermission == undefined || webPushPermission == true && (bannerLoadFlag == true)) {
+                                 moeCloseBanner();
                              }
                          })
-                         .catch(function(e) {});
-                 })
-                 .then(function() {
-                     // Unsubscribe user from this call
-                     subscriptionUpdate(null, 'unsubscribed');
-                 })
-                 .catch(function(e) {
-                     console.error('Error thrown while revoking push notifications. ' +
-                         'Most likely because push was never registered', e);
-                 });
-         };
+                         .catch(function(subscriptionErr) {
+                             console.log('User Subscription Error', subscriptionErr);
 
-         moeCheckPushSubscriptionStatus = function() {
-             // console.log('PushClient.setUpPushPermission()'); "Google Chrome"
-             if ('serviceWorker' in navigator && (sBrowser == "Google Chrome")) {
-                 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
-                         // Let's see if we have a subscription already
-                         return serviceWorkerRegistration.pushManager.getSubscription();
-                     })
-                     .then(function(subscription) {
-                         if (!subscription) {
-                             // NOOP since we have no subscription and the permission state
-                             // will inform whether to enable or disable the push UI
-                             subscriptionUpdate(null);
-                             var webPushPermission = localStorage.getItem("ask_web_push");
-                             if ((webPushPermission == undefined || webPushPermission == true) && (isIncognitoFlag == false) && (bannerLoadFlag == true)) {
-                                 setTimeout(moeLoadBanner, bannerLoadTime);
-                             } else if((webPushPermission == undefined || webPushPermission == true) && (isIncognitoFlag == false) && (bannerLoadFlag == false)){
-                                // Need to remove it if user calls the below function themselves when not using banner
-                                var loadFuncTime = webSettings['webData']['load_time'] * 1000;
-                                setTimeout(moeSubscribeUserSwap, loadFuncTime);
+                             // Check for a permission prompt issue
+                             return navigator.permissions.query({
+                                     name: 'push',
+                                     userVisibleOnly: true
+                                 })
+                                 .then(function(permissionState) {
+                                     console.log(permissionState.state, "Permission State")
+                                     moeCloseBanner();
+                                     // window.PushDemo.ui.setPushChecked(false);
+                                     if (permissionState.state !== 'denied' &&
+                                         permissionState.state !== 'prompt') {
+                                         // If the permission wasnt denied or prompt, that means the
+                                         // permission was accepted, so this must be an error
+                                     }
+                                 });
+                         });
+                 };
+
+                 moeUnSubscribeUserSwap = function() {
+                     console.log('Unsubscription Started');
+                     navigator.serviceWorker.ready
+                         .then(function(serviceWorkerRegistration) {
+                             return serviceWorkerRegistration.pushManager.getSubscription();
+                         })
+                         .then(function(pushSubscription) {
+                             // Check we have everything we need to unsubscribe
+                             if (!pushSubscription) {
+                                 // User is already unsubscribed from our system. Make call to sync with server
+                                 subscriptionUpdate(null);
+                                 return;
                              }
-                             return;
-                         }
-                         subscriptionUpdate(subscription);
-                         
-                     })
-                     .catch(function(err) {
-                         console.log('PushClient.setUpPushPermission() Error', err);
-                     });
-             } else {
-                 console.log('Push Notification not allowed');
-             }
-         };
+                             return pushSubscription.unsubscribe()
+                                 .then(function(successful) {
+                                     if (!successful) {
+                                         // The unsubscribe was unsuccessful, but we can
+                                         // remove the subscriptionId from our server
+                                         // and notifications will stop
+                                         // This just may be in a bad state when the user returns
+                                         console.error('We were unable to unregister from push');
+                                     }
+                                 })
+                                 .catch(function(e) {});
+                         })
+                         .then(function() {
+                             // Unsubscribe user from this call
+                             subscriptionUpdate(null, 'unsubscribed');
+                         })
+                         .catch(function(e) {
+                             console.error('Error thrown while revoking push notifications. ' +
+                                 'Most likely because push was never registered', e);
+                         });
+                 };
 
-         if(webSettings['webData']['banner'] && webSettings['webData']['banner']['banner_flag']){
-            var bannerLoadFlag = webSettings['webData']['banner']['banner_flag'];
-         } else {
-            var bannerLoadFlag = false;
-         }
+                 moeCheckPushSubscriptionStatus = function() {
+                     // console.log('PushClient.setUpPushPermission()'); "Google Chrome"
+                     if ('serviceWorker' in navigator && (sBrowser == "Google Chrome")) {
+                         navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
+                                 // Let's see if we have a subscription already
+                                 return serviceWorkerRegistration.pushManager.getSubscription();
+                             })
+                             .then(function(subscription) {
+                                 if (!subscription) {
+                                     // NOOP since we have no subscription and the permission state
+                                     // will inform whether to enable or disable the push UI
+                                     subscriptionUpdate(null);
+                                     var webPushPermission = localStorage.getItem("ask_web_push");
+                                     if ((webPushPermission == undefined || webPushPermission == true) && (isIncognitoFlag == false) && (bannerLoadFlag == true)) {
+                                         setTimeout(moeLoadBanner, bannerLoadTime);
+                                     } else if ((webPushPermission == undefined || webPushPermission == true) && (isIncognitoFlag == false) && (bannerLoadFlag == false)) {
+                                         // Need to remove it if user calls the below function themselves when not using banner
+                                         var loadFuncTime = webSettings['webData']['load_time'] * 1000;
+                                         setTimeout(moeSubscribeUserSwap, loadFuncTime);
+                                     }
+                                     return;
+                                 }
+                                 subscriptionUpdate(subscription);
 
-         if(webSettings['webData']['banner'] && webSettings['webData']['banner']['banner_time']){
-            var bannerLoadTime = webSettings['webData']['banner']['banner_time'] * 1000 // Coverting to milliseconds.
-         } else {
-            var bannerLoadTime = 0;
-         }
-         var checkHTTPLoadBanner = localStorage.getItem("ask_web_push");
-         if (httpsFlag == true && (sBrowser == "Google Chrome") && (isIncognitoFlag == false)) {
-            registerServieWorker(); // Registering a service worker on load
-             moeCheckPushSubscriptionStatus();
-         } else if (httpsFlag == false && (sBrowser == "Google Chrome") && (isIncognitoFlag == false) && (checkHTTPLoadBanner == null || checkHTTPLoadBanner == undefined || checkHTTPLoadBanner == true) && (bannerLoadFlag == true)) {
-             setTimeout(moeLoadBanner, bannerLoadTime);
-         }
+                             })
+                             .catch(function(err) {
+                                 console.log('PushClient.setUpPushPermission() Error', err);
+                             });
+                     } else {
+                         console.log('Push Notification not allowed');
+                     }
+                 };
 
-       });
-         
-    }
-     /* Web Push Code End
-      * Below is the return call of MOE function
-      */
+                 if (webSettings['webData']['banner'] && webSettings['webData']['banner']['banner_flag']) {
+                     var bannerLoadFlag = webSettings['webData']['banner']['banner_flag'];
+                 } else {
+                     var bannerLoadFlag = false;
+                 }
+
+                 if (webSettings['webData']['banner'] && webSettings['webData']['banner']['banner_time']) {
+                     var bannerLoadTime = webSettings['webData']['banner']['banner_time'] * 1000 // Coverting to milliseconds.
+                 } else {
+                     var bannerLoadTime = 0;
+                 }
+                 var checkHTTPLoadBanner = localStorage.getItem("ask_web_push");
+                 if (httpsFlag == true && (sBrowser == "Google Chrome") && (isIncognitoFlag == false)) {
+                     registerServieWorker(); // Registering a service worker on load
+                     moeCheckPushSubscriptionStatus();
+                 } else if (httpsFlag == false && (sBrowser == "Google Chrome") && (isIncognitoFlag == false) && (checkHTTPLoadBanner == null || checkHTTPLoadBanner == undefined || checkHTTPLoadBanner == true) && (bannerLoadFlag == true)) {
+                     setTimeout(moeLoadBanner, bannerLoadTime);
+                 }
+
+             });
+
+         }
+         /* Web Push Code End
+          * Below is the return call of MOE function
+          */
 
      return function(data) {
          self.moe_data = data
@@ -871,7 +895,8 @@
              add_birthday: add_birthday,
              // add_location: add_location,
              destroy_session: destroy_session,
-             add_unique_user_id: add_unique_user_id
+             add_unique_user_id: add_unique_user_id,
+             call_web_push: callWebPush
          }
      };
 
