@@ -580,27 +580,31 @@
 
 
 
-      var webPushFunctions = function(webSettings){
-        var httpsFlag;
-        if(webSettings['webData']['domain_type'] == 'https') {
-            httpsFlag = true;
-        } else if(webSettings['webData']['domain_type'] == 'http'){
-            httpsFlag = false;
-            collectData().then(function(dataToIframe) {
-              var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
-              var iframeToOpen = constructGet(subdomain, dataToIframe);
-              function callIframe(){
-               var iframe = document.createElement("iframe");
-               iframe.style.display = "none";
-               iframe.src = iframeToOpen;
-               document.getElementsByTagName('body')[0].appendChild(iframe);
-            };
-            callIframe();
-            })
-        };
+    var webPushFunctions = function(webSettings){
 
-        var settingsData = {};
-        settingsData = webSettings['webData']['banner'];
+        isWindowIncognito().then(function(isIncognito) {
+         isIncognitoFlag = isIncognito;
+     
+            var httpsFlag;
+            if(webSettings['webData']['domain_type'] == 'https') {
+                httpsFlag = true;
+            } else if(webSettings['webData']['domain_type'] == 'http'){
+                httpsFlag = false;
+                collectData().then(function(dataToIframe) {
+                  var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
+                  var iframeToOpen = constructGet(subdomain, dataToIframe);
+                  function callIframe(){
+                   var iframe = document.createElement("iframe");
+                   iframe.style.display = "none";
+                   iframe.src = iframeToOpen;
+                   document.getElementsByTagName('body')[0].appendChild(iframe);
+                };
+                callIframe();
+                })
+            };
+
+            var settingsData = {};
+            settingsData = webSettings['webData']['banner'];
 
 
          function popupwindow(url, title, w, h) {
@@ -609,17 +613,17 @@
              return window.open(url, title, 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width=' + w + ', height=' + h + ', top=' + top + ', left=' + left);
          }
 
-         moeOpenSubDomain = function() {
-
+        moeOpenSubDomain = function() {
             collectData().then(function(dataToIframe) {
                   var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
                   // dataToIframe.os_platform = 'Chrome' // Changing it from navigator to make proper JSON in subdomain
                   var iframeToOpen = constructGet(subdomain, dataToIframe);
                   popupwindow(iframeToOpen, 'mywindow', '600', '500');
                   localStorage.setItem("ask_web_push", false);
+                  moeCloseBanner();
             });
              
-         };
+        };
 
          moeLoadBanner = function() {
              var iDiv = document.createElement('div');
@@ -677,11 +681,16 @@
          var subscriptionUpdate = function(subscription, param) {
              if (!subscription) {
                  subscriptionId = null;
+                 
                  if (param == 'unsubscribed') {
                      track_event("MOE_USER_UNSUBSCRIBED", {
                          'MOE_WEB_PUSH_TOKEN': 'false'
                      });
-                 }
+                 } else if (param == undefined) {
+                    track_event("MOE_USER_SUBSCRIPTION_CHECK", {
+                        'MOE_WEB_PUSH_TOKEN': 'false'
+                    });
+                 };
                  collectData().then(function(dataToServiceWorker) {
                  dataToServiceWorker['push_id'] = subscriptionId;
                  navigator.serviceWorker.controller.postMessage({
@@ -698,14 +707,19 @@
                  navigator.serviceWorker.controller.postMessage({
                      'data': dataToServiceWorker
                  });
-             })
-             // ToDo Need to remove this completely before making it live
-             // var curlCodeElement = document.querySelector('.js-curl-code');
-             // curlCodeElement.innerHTML = subscriptionId;
+             });
+             track_event("MOE_USER_SUBSCRIPTION_CHECK", {
+                 'MOE_WEB_PUSH_TOKEN': subscriptionId
+             });
+
              if (param == 'subscribed') {
                  track_event("MOE_USER_SUBSCRIBED", {
                      'MOE_WEB_PUSH_TOKEN': subscriptionId
                  });
+             } else if (param == undefined) {
+                track_event("MOE_USER_SUBSCRIPTION_CHECK", {
+                    'MOE_WEB_PUSH_TOKEN': 'false'
+                });
              }
 
          };
@@ -722,7 +736,7 @@
                  .then(function(subscription) {
                      subscriptionUpdate(subscription, 'subscribed');
                      var webPushPermission = localStorage.getItem("ask_web_push");
-                     if (webPushPermission == undefined || webPushPermission == true) {
+                     if (webPushPermission == undefined || webPushPermission == true && (bannerLoadFlag == true)) {
                          moeCloseBanner();
                      }
                  })
@@ -795,15 +809,15 @@
                              // will inform whether to enable or disable the push UI
                              subscriptionUpdate(null);
                              var webPushPermission = localStorage.getItem("ask_web_push");
-                             if ((webPushPermission == undefined || webPushPermission == true) && (isIncognitoFlag == false)) {
-                                 moeLoadBanner();
-                             } else {
-                                 moeSubscribeUserSwap();
+                             if ((webPushPermission == undefined || webPushPermission == true) && (isIncognitoFlag == false) && (bannerLoadFlag == true)) {
+                                 setTimeout(moeLoadBanner, bannerLoadTime);
+                             } else if((webPushPermission == undefined || webPushPermission == true) && (isIncognitoFlag == false) && (bannerLoadFlag == false)){
+                                // Need to remove it if user calls the below function themselves when not using banner
+                                var loadFuncTime = webSettings['webData']['load_time'] * 1000;
+                                setTimeout(moeSubscribeUserSwap, loadFuncTime);
                              }
                              return;
                          }
-                         // Update the current state with the
-                         // subscriptionid and endpoint
                          subscriptionUpdate(subscription);
                          
                      })
@@ -813,16 +827,30 @@
              } else {
                  console.log('Push Notification not allowed');
              }
+         };
+
+         if(webSettings['webData']['banner'] && webSettings['webData']['banner']['banner_flag']){
+            var bannerLoadFlag = webSettings['webData']['banner']['banner_flag'];
+         } else {
+            var bannerLoadFlag = false;
+         }
+
+         if(webSettings['webData']['banner'] && webSettings['webData']['banner']['banner_time']){
+            var bannerLoadTime = webSettings['webData']['banner']['banner_time'] * 1000 // Coverting to milliseconds.
+         } else {
+            var bannerLoadTime = 0;
          }
          var checkHTTPLoadBanner = localStorage.getItem("ask_web_push");
          if (httpsFlag == true && (sBrowser == "Google Chrome") && (isIncognitoFlag == false)) {
-             registerServieWorker(); // Registering a service worker on load
+            registerServieWorker(); // Registering a service worker on load
              moeCheckPushSubscriptionStatus();
-         } else if (httpsFlag == false && (sBrowser == "Google Chrome") && (isIncognitoFlag == false) && (checkHTTPLoadBanner == undefined || checkHTTPLoadBanner == true)) {
-             moeLoadBanner();
+         } else if (httpsFlag == false && (sBrowser == "Google Chrome") && (isIncognitoFlag == false) && (checkHTTPLoadBanner == null || checkHTTPLoadBanner == undefined || checkHTTPLoadBanner == true) && (bannerLoadFlag == true)) {
+             setTimeout(moeLoadBanner, bannerLoadTime);
          }
+
+       });
          
-     }
+    }
      /* Web Push Code End
       * Below is the return call of MOE function
       */
