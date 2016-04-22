@@ -587,7 +587,7 @@
         } else if(webSettings['webData']['domain_type'] == 'http'){
             httpsFlag = false;
             collectData().then(function(dataToIframe) {
-              var subdomain = 'https://' + webSettings['webData']['domain_type'] + '.moengage.com';
+              var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
               var iframeToOpen = constructGet(subdomain, dataToIframe);
               function callIframe(){
                var iframe = document.createElement("iframe");
@@ -612,8 +612,8 @@
          moeOpenSubDomain = function() {
 
             collectData().then(function(dataToIframe) {
-                  var subdomain = 'https://dummybackend.moengage.com';
-                  dataToIframe.os_platform = 'Chrome' // Changing it from navigator to make proper JSON in subdomain
+                  var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
+                  // dataToIframe.os_platform = 'Chrome' // Changing it from navigator to make proper JSON in subdomain
                   var iframeToOpen = constructGet(subdomain, dataToIframe);
                   popupwindow(iframeToOpen, 'mywindow', '600', '500');
                   localStorage.setItem("ask_web_push", false);
