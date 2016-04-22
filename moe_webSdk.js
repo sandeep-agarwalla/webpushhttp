@@ -601,8 +601,6 @@
          })
      }
 
-
-
      var webPushFunctions = function(webSettings) {
 
             isWindowIncognito().then(function(isIncognito) {
