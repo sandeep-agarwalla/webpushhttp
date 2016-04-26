@@ -246,9 +246,9 @@
          })
 
          getWedSDKSettings().then(function(data){
-            if(data['webData']['call_push'] && data['webData']['call_push'] != 'client'){
+            // if(data['webData']['call_push'] && data['webData']['call_push'] != 'client'){ Check for client calling. to be added in settings
             webPushFunctions(data);
-            }
+            // }
          });
 
 
