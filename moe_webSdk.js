@@ -605,13 +605,14 @@
 
             isWindowIncognito().then(function(isIncognito) {
                  isIncognitoFlag = isIncognito;
-
+                 var dataToIframeGlobal;
                  var httpsFlag;
                  if (webSettings['webData']['domain_type'] == 'https') {
                      httpsFlag = true;
                  } else if (webSettings['webData']['domain_type'] == 'http') {
                      httpsFlag = false;
                      collectData().then(function(dataToIframe) {
+                         
                          var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
                          var iframeToOpen = constructGet(subdomain, dataToIframe);
 
@@ -632,18 +633,18 @@
                  function popupwindow(url, title, w, h) {
                      var left = (screen.width / 2) - (w / 2);
                      var top = (screen.height / 2) - (h / 2);
-                     return window.open(url, title, 'toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=no, resizable=no, copyhistory=no, width=' + w + ', height=' + h + ', top=' + top + ', left=' + left);
+                     return window.open(url,'_blank'); // Opening in new tab
                  }
 
                  moeOpenSubDomain = function() {
-                     collectData().then(function(dataToIframe) {
+                     // collectData().then(function(dataToIframe) {
                          var subdomain = 'https://' + webSettings['webData']['subdomain'] + '.moengage.com';
                          // dataToIframe.os_platform = 'Chrome' // Changing it from navigator to make proper JSON in subdomain
-                         var iframeToOpen = constructGet(subdomain, dataToIframe);
+                         var iframeToOpen = constructGet(subdomain, dataToIframeGlobal);
                          popupwindow(iframeToOpen, 'mywindow', '600', '500');
                          localStorage.setItem("ask_web_push", false);
                          moeCloseBanner();
-                     });
+                     // });
 
                  };
 
@@ -867,7 +868,10 @@
                      registerServieWorker(); // Registering a service worker on load
                      moeCheckPushSubscriptionStatus();
                  } else if (httpsFlag == false && (sBrowser == "Google Chrome") && (isIncognitoFlag == false) && (checkHTTPLoadBanner == null || checkHTTPLoadBanner == undefined || checkHTTPLoadBanner == true) && (bannerLoadFlag == true)) {
-                     setTimeout(moeLoadBanner, bannerLoadTime);
+                     collectData().then(function(dataToIframe) {
+                        dataToIframeGlobal = dataToIframe;
+                        setTimeout(moeLoadBanner, bannerLoadTime);
+                      });
                  }
 
              });
